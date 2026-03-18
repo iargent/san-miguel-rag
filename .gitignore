@@ -4,8 +4,9 @@ docs/
 # ChromaDB directory
 chroma_db/
 
-# Package directory
+# Package directories
 package/
+layer/
 
 # The deployment file
 deployment.zip
