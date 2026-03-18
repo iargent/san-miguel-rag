@@ -1,8 +1,9 @@
 import os
+import json
+import faiss
+import numpy as np
 import anthropic
 import voyageai
-import chromadb
-
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -13,8 +14,8 @@ from pydantic import BaseModel
 
 load_dotenv()
 
-CHROMA_DIR = os.getenv("CHROMA_DIR", "chroma_db")
-COLLECTION_NAME = "san_miguel"
+INDEX_FILE = os.getenv("INDEX_FILE", "index.faiss")
+DOCS_FILE = os.getenv("DOCS_FILE", "docs.json")
 VOYAGE_MODEL = "voyage-3-lite"
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 1024
@@ -22,14 +23,17 @@ N_RESULTS = 3
 
 anthropic_client = anthropic.Anthropic()
 voyage_client = voyageai.Client()
+faiss_index = None
+documents = None
 
 
 @asynccontextmanager
 async def lifespan(app):
-    global collection
-    chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
-    collection = chroma_client.get_collection(COLLECTION_NAME)
-    print(f"Loaded collection with {collection.count()} documents")
+    global faiss_index, documents
+    faiss_index = faiss.read_index(INDEX_FILE)
+    with open(DOCS_FILE, encoding="utf-8") as f:
+        documents = json.load(f)
+    print(f"Loaded FAISS index with {faiss_index.ntotal} vectors")
     yield
 
 
@@ -52,10 +56,10 @@ class AskRequest(BaseModel):
 
 def retrieve(question):
     result = voyage_client.embed([question], model=VOYAGE_MODEL, input_type="query")
-    query_embedding = result.embeddings[0]
-
-    results = collection.query(query_embeddings=[query_embedding], n_results=N_RESULTS)
-    return results["documents"][0]
+    query_vector = np.array(result.embeddings, dtype=np.float32)
+    faiss.normalizeL2(query_vector)
+    _, indices = faiss_index.search(query_vector, N_RESULTS)
+    return [documents[i] for i in indices[0] if i < len(documents)]
 
 
 def build_prompt(question, context_docs):
@@ -70,10 +74,8 @@ than inventing details.
 
 Always respond in the same language the question was asked in. The context will 
 be in Spanish but you should translate relevant information into the user's language.
-
 Context:
 {context}
-
 Question:
 {question}"""
 

@@ -11,22 +11,24 @@ python3 indexer.py
 
 echo "Installing dependencies using Docker..."
 docker run --rm \
-    --entrypoint pip \
+    --entrypoint /bin/bash \
     -v "$(pwd)/package:/package" \
     amazon/aws-lambda-python:3.13 \
-    install \
+    -c "pip install \
         fastapi \
         uvicorn \
         anthropic \
-        "voyageai==0.3.7" \
-        chromadb \
+        'voyageai==0.3.7' \
+        faiss-cpu \
+        numpy \
         mangum \
         python-dotenv \
-        -t /package
-
+        -t /package && chown -R $(id -u):$(id -g) /package"
+        
 echo "Copying app code..."
 cp main.py package/
-cp -r chroma_db package/
+cp index.faiss package/
+cp docs.json package/
 
 echo "Building zip..."
 cd package
