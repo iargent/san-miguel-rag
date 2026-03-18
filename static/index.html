@@ -51,8 +51,8 @@
             btn.disabled = true;
             btn.textContent = "Thinking...";
 
-            try {
-                const response = await fetch("/ask", {
+            try {                
+                const response = await fetch("https://xjnrtgydfj.execute-api.eu-west-1.amazonaws.com/ask", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ question })
