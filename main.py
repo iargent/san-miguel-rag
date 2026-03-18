@@ -2,8 +2,8 @@ import os
 import json
 import faiss
 import numpy as np
+import httpx
 import anthropic
-import voyageai
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -16,15 +16,26 @@ load_dotenv()
 
 INDEX_FILE = os.getenv("INDEX_FILE", "index.faiss")
 DOCS_FILE = os.getenv("DOCS_FILE", "docs.json")
+VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 VOYAGE_MODEL = "voyage-3-lite"
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 1024
 N_RESULTS = 3
 
 anthropic_client = anthropic.Anthropic()
-voyage_client = voyageai.Client()
 faiss_index = None
 documents = None
+
+
+def embed(texts, input_type="document"):
+    response = httpx.post(
+        "https://api.voyageai.com/v1/embeddings",
+        headers={"Authorization": f"Bearer {VOYAGE_API_KEY}"},
+        json={"model": VOYAGE_MODEL, "input": texts, "input_type": input_type},
+    )
+    response.raise_for_status()
+    data = response.json()
+    return [item["embedding"] for item in data["data"]]
 
 
 @asynccontextmanager
@@ -55,24 +66,22 @@ class AskRequest(BaseModel):
 
 
 def retrieve(question):
-    result = voyage_client.embed([question], model=VOYAGE_MODEL, input_type="query")
-    query_vector = np.array(result.embeddings, dtype=np.float32)
-    faiss.normalizeL2(query_vector)
+    embeddings = embed([question], input_type="query")
+    query_vector = np.array(embeddings, dtype=np.float32)
+    faiss.normalize_L2(query_vector)
     _, indices = faiss_index.search(query_vector, N_RESULTS)
     return [documents[i] for i in indices[0] if i < len(documents)]
 
 
 def build_prompt(question, context_docs):
     context = "\n\n---\n\n".join(context_docs)
-    return f"""You are a helpful local information assistant for San Miguel de Salinas, 
+    return f"""You are a helpful local information assistant for San Miguel de Salinas,
 a small town in the Alicante province of Spain.
-
-You have been given extracts from the official town hall website to help answer 
-the user's question. Answer based on the provided context. If the context does 
-not contain enough information to answer the question, say so honestly rather 
+You have been given extracts from the official town hall website to help answer
+the user's question. Answer based on the provided context. If the context does
+not contain enough information to answer the question, say so honestly rather
 than inventing details.
-
-Always respond in the same language the question was asked in. The context will 
+Always respond in the same language the question was asked in. The context will
 be in Spanish but you should translate relevant information into the user's language.
 Context:
 {context}
@@ -87,13 +96,12 @@ def ask(request: AskRequest):
     context_docs = retrieve(request.question)
     if not context_docs:
         raise HTTPException(status_code=500, detail="Could not retrieve context")
-    prompt = build_prompt(request.question, context_docs)
+    prompt = build_prompt(question=request.question, context_docs=context_docs)
     response = anthropic_client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=MAX_TOKENS,
         messages=[{"role": "user", "content": prompt}],
     )
-
     return {
         "answer": response.content[0].text,
         "sources": [doc[:100] + "..." for doc in context_docs],

@@ -2,7 +2,7 @@ import os
 import json
 import faiss
 import numpy as np
-import voyageai
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,8 +11,18 @@ DOCS_DIR = "docs"
 INDEX_FILE = "index.faiss"
 DOCS_FILE = "docs.json"
 VOYAGE_MODEL = "voyage-3-lite"
+VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 
-voyage_client = voyageai.Client()
+
+def embed(texts, input_type="document"):
+    response = httpx.post(
+        "https://api.voyageai.com/v1/embeddings",
+        headers={"Authorization": f"Bearer {VOYAGE_API_KEY}"},
+        json={"model": VOYAGE_MODEL, "input": texts, "input_type": input_type},
+    )
+    response.raise_for_status()
+    data = response.json()
+    return [item["embedding"] for item in data["data"]]
 
 
 def load_documents(docs_dir):
@@ -28,24 +38,14 @@ def load_documents(docs_dir):
     return documents
 
 
-def embed_documents(documents):
-    texts = [doc["text"] for doc in documents]
-    result = voyage_client.embed(texts, model=VOYAGE_MODEL, input_type="document")
-    print(f"Embedded {len(result.embeddings)} documents")
-    return result.embeddings
-
-
 def build_index(documents, embeddings):
     vectors = np.array(embeddings, dtype=np.float32)
     dimension = vectors.shape[1]
-
     index = faiss.IndexFlatIP(dimension)
     faiss.normalize_L2(vectors)
     index.add(vectors)
-
     faiss.write_index(index, INDEX_FILE)
     print(f"Saved FAISS index to {INDEX_FILE}")
-
     with open(DOCS_FILE, "w", encoding="utf-8") as f:
         json.dump([doc["text"] for doc in documents], f, ensure_ascii=False)
     print(f"Saved documents to {DOCS_FILE}")
@@ -53,6 +53,7 @@ def build_index(documents, embeddings):
 
 if __name__ == "__main__":
     documents = load_documents(DOCS_DIR)
-    embeddings = embed_documents(documents)
+    embeddings = embed([doc["text"] for doc in documents], input_type="document")
+    print(f"Embedded {len(embeddings)} documents")
     build_index(documents, embeddings)
     print("Indexing complete")
