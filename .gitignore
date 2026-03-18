@@ -2,7 +2,13 @@
 docs/
 
 # ChromaDB directory
-chroma_db
+chroma_db/
+
+# Package directory
+package/
+
+# The deployment file
+deployment.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

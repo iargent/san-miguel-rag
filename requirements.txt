@@ -43,6 +43,7 @@ kubernetes==35.0.0
 langchain-core==1.2.19
 langchain-text-splitters==1.1.1
 langsmith==0.7.18
+mangum==0.21.0
 markdown-it-py==4.0.0
 mdurl==0.1.2
 mmh3==5.2.1

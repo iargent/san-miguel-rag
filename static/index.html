@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>San Miguel de Salinas — Local Info</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+        input { width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box; margin-bottom: 12px; }
+        button { padding: 10px 24px; background: #b91c1c; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 16px; }
+        button:disabled { background: #fca5a5; cursor: not-allowed; }
+        #answer { background: #fef2f2; border-left: 4px solid #b91c1c; padding: 16px; margin-top: 24px; display: none; white-space: pre-wrap; }
+        #sources { margin-top: 16px; font-size: 0.85em; color: #6b7280; display: none; }
+        #error { color: red; margin-top: 16px; display: none; }
+    </style>
+</head>
+<body>
+    <h1>San Miguel de Salinas</h1>
+    <p>Ask a question about local news and events. You can ask in English, Spanish, or French.</p>
+
+    <input
+        type="text"
+        id="question"
+        placeholder="e.g. What events are happening this month?"
+        onkeydown="if(event.key==='Enter') ask()"
+    />
+    <button id="btn" onclick="ask()">Ask</button>
+
+    <div id="error"></div>
+
+    <div id="answer"></div>
+    <div id="sources"></div>
+
+    <script>
+        async function ask() {
+            const question = document.getElementById("question").value.trim();
+            const btn = document.getElementById("btn");
+            const answer = document.getElementById("answer");
+            const sources = document.getElementById("sources");
+            const error = document.getElementById("error");
+
+            error.style.display = "none";
+            answer.style.display = "none";
+            sources.style.display = "none";
+
+            if (!question) {
+                error.textContent = "Please enter a question.";
+                error.style.display = "block";
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Thinking...";
+
+            try {
+                const response = await fetch("/ask", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || "Something went wrong");
+                }
+
+                answer.textContent = data.answer;
+                answer.style.display = "block";
+
+                if (data.sources && data.sources.length > 0) {
+                    sources.innerHTML = "<strong>Sources:</strong><br>" +
+                        data.sources.map(s => `• ${s}`).join("<br>");
+                    sources.style.display = "block";
+                }
+
+            } catch (err) {
+                error.textContent = err.message;
+                error.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Ask";
+            }
+        }
+    </script>
+</body>
+</html>
