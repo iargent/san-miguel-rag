@@ -24,6 +24,8 @@ def embed(texts, input_type="document"):
         json={"model": VOYAGE_MODEL, "input": texts, "input_type": input_type},
         timeout=30.0,
     )
+    if response.status_code == 429:
+        print(f"429 headers: {dict(response.headers)}")
     response.raise_for_status()
     data = response.json()
     return [item["embedding"] for item in data["data"]]
