@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import faiss
 import numpy as np
 import httpx
@@ -12,6 +13,8 @@ INDEX_FILE = "index.faiss"
 DOCS_FILE = "docs.json"
 VOYAGE_MODEL = "voyage-3-lite"
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
+BATCH_SIZE = 50
+BATCH_DELAY = 2  # seconds between batches
 
 
 def embed(texts, input_type="document"):
@@ -19,10 +22,37 @@ def embed(texts, input_type="document"):
         "https://api.voyageai.com/v1/embeddings",
         headers={"Authorization": f"Bearer {VOYAGE_API_KEY}"},
         json={"model": VOYAGE_MODEL, "input": texts, "input_type": input_type},
+        timeout=30.0,
     )
     response.raise_for_status()
     data = response.json()
     return [item["embedding"] for item in data["data"]]
+
+
+def embed_in_batches(texts):
+    all_embeddings = []
+    total_batches = (len(texts) + BATCH_SIZE - 1) // BATCH_SIZE
+    for i in range(0, len(texts), BATCH_SIZE):
+        batch = texts[i : i + BATCH_SIZE]
+        batch_num = (i // BATCH_SIZE) + 1
+        print(
+            f"  Embedding batch {batch_num}/{total_batches} ({len(batch)} documents)..."
+        )
+        try:
+            embeddings = embed(batch, input_type="document")
+            all_embeddings.extend(embeddings)
+            if i + BATCH_SIZE < len(texts):
+                time.sleep(BATCH_DELAY)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                print(f"  Rate limited on batch {batch_num}, waiting 60 seconds...")
+                time.sleep(60)
+                # Retry the same batch
+                embeddings = embed(batch, input_type="document")
+                all_embeddings.extend(embeddings)
+            else:
+                raise
+    return all_embeddings
 
 
 def load_documents(docs_dir):
@@ -53,7 +83,8 @@ def build_index(documents, embeddings):
 
 if __name__ == "__main__":
     documents = load_documents(DOCS_DIR)
-    embeddings = embed([doc["text"] for doc in documents], input_type="document")
+    print(f"Embedding {len(documents)} documents in batches of {BATCH_SIZE}...")
+    embeddings = embed_in_batches([doc["text"] for doc in documents])
     print(f"Embedded {len(embeddings)} documents")
     build_index(documents, embeddings)
     print("Indexing complete")
