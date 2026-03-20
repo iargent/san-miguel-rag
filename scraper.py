@@ -7,8 +7,8 @@ from bs4 import BeautifulSoup
 
 BASE_URL = "https://www.sanmigueldesalinas.es"
 DOCS_DIR = "docs"
-START_YEAR = 2023
-START_MONTH = 1
+START_YEAR = 2016
+START_MONTH = 11
 
 
 def generate_monthly_urls():
