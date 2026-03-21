@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# rebuilds the index and uploads to S3 (run when content changes)
+
 set -e
 
 echo "Running indexer..."

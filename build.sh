@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# packages and deploys the Lambda function (run when code changes)
+
 set -e
 
 echo "Cleaning previous build..."

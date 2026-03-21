@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# calls build.sh and handles the AWS upload (the main deployment command)
+
 set -e
 
 ./build.sh
