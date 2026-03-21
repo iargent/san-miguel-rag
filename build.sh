@@ -5,9 +5,6 @@ echo "Cleaning previous build..."
 rm -rf ./package ./layer
 mkdir ./package ./layer
 
-echo "Running indexer..."
-python3 indexer.py
-
 echo "Installing layer dependencies using Docker..."
 docker run --rm \
     --entrypoint /bin/bash \
@@ -28,6 +25,7 @@ docker run --rm \
         uvicorn \
         anthropic \
         httpx \
+        boto3 \
         mangum \
         python-dotenv \
         -t /package && \
@@ -41,8 +39,6 @@ docker run --rm \
         
 echo "Copying app code and index files..."
 cp main.py package/
-cp index.faiss package/
-cp docs.json package/
 
 echo "Building layer zip..."
 cd layer

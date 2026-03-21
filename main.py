@@ -1,3 +1,4 @@
+import boto3
 import os
 import json
 import faiss
@@ -14,8 +15,11 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+S3_BUCKET = os.getenv("INDEX_BUCKET", "")
 INDEX_FILE = os.getenv("INDEX_FILE", "index.faiss")
 DOCS_FILE = os.getenv("DOCS_FILE", "docs.json")
+TMP_INDEX = "/tmp/index.faiss"
+TMP_DOCS = "/tmp/docs.json"
 VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 VOYAGE_MODEL = "voyage-3-lite"
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
@@ -41,8 +45,22 @@ def embed(texts, input_type="document"):
 @asynccontextmanager
 async def lifespan(app):
     global faiss_index, documents
-    faiss_index = faiss.read_index(INDEX_FILE)
-    with open(DOCS_FILE, encoding="utf-8") as f:
+    if S3_BUCKET:
+        # Production: download from S3
+        print(f"Downloading index files from S3 bucket: {S3_BUCKET}")
+        s3 = boto3.client("s3")
+        s3.download_file(S3_BUCKET, INDEX_FILE, TMP_INDEX)
+        s3.download_file(S3_BUCKET, DOCS_FILE, TMP_DOCS)
+        index_path = TMP_INDEX
+        docs_path = TMP_DOCS
+    else:
+        # Local development: use local files
+        print("No S3_BUCKET set, using local index files")
+        index_path = INDEX_FILE
+        docs_path = DOCS_FILE
+
+    faiss_index = faiss.read_index(index_path)
+    with open(docs_path, encoding="utf-8") as f:
         documents = json.load(f)
     print(f"Loaded FAISS index with {faiss_index.ntotal} vectors")
     yield
