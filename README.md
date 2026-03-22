@@ -4,7 +4,7 @@ A multilingual AI-powered assistant that allows residents and visitors to ask qu
 
 ## Live Demo
 
-Hosted on AWS S3: [http://san-miguel-rag-your-name.s3-website-eu-west-1.amazonaws.com](http://san-miguel-rag-your-name.s3-website-eu-west-1.amazonaws.com)
+Hosted on AWS S3: [https://salinasjournal.com](https://salinasjournal.com)
 
 ## Example
 
@@ -39,6 +39,7 @@ Browser → API Gateway → Lambda (FastAPI + Mangum) → Voyage AI (embeddings)
 | LLM | Anthropic Claude (claude-haiku) |
 | Embeddings | Voyage AI (voyage-3-lite) via REST API |
 | Vector search | FAISS |
+| Rate limiting | SlowAPI |
 | Serverless runtime | AWS Lambda (Python 3.13) |
 | API layer | AWS API Gateway (HTTP API) |
 | Frontend hosting | AWS S3 (static website) |
@@ -153,12 +154,11 @@ At low traffic, this application runs for effectively nothing. Lambda, API Gatew
 
 - Documents must be added manually as `.txt` files — there is no automated scraper yet
 - The knowledge base reflects the documents available at the time of the last deployment
-- Redeploying is required when new documents are added
 
 ## Roadmap
 
 - [ ] Automated scraper to fetch new town hall posts on a schedule
 - [ ] Separate indexer Lambda triggered weekly by EventBridge
-- [ ] FAISS index stored in S3 and loaded at Lambda startup (removes need to redeploy for new content)
+- [✓] FAISS index stored in S3 and loaded at Lambda startup (removes need to redeploy for new content)
 - [ ] Facebook Messenger bot integration
 - [ ] Support for additional sources (local newspaper, community notices)
