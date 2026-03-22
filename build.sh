@@ -25,6 +25,7 @@ docker run --rm \
     amazon/aws-lambda-python:3.13 \
     -c "pip install \
         fastapi \
+        slowapi \
         uvicorn \
         anthropic \
         httpx \
